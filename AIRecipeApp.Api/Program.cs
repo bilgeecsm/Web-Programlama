@@ -1,4 +1,4 @@
-﻿
+
 using AIRecipeApp.Api.Context;
 using AIRecipeApp.Api.Interfaces;
 
@@ -9,12 +9,14 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 📌 MongoDB ve Servis Bağlantıları
 builder.Services.Configure<MongoDbContext>(builder.Configuration);
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddScoped<IRecipeService, RecipeService>();
 builder.Services.AddScoped<IOpenAiService, OpenAiService>();
 
 
+// 📌 JWT Authentication Ekle
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -43,7 +45,6 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Malzemelerden tarif oluşturabilen yapay zeka destekli API"
     });
 
-    // 📌 Swagger UI'ye JWT Token Desteği Ekleyelim
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         In = ParameterLocation.Header,
@@ -68,3 +69,28 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
+
+
+builder.Services.AddControllers();
+
+var app = builder.Build();
+
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "AI Recipe API v1");
+        c.RoutePrefix = "swagger"; // "/swagger" yolunu kullan
+    });
+}
+
+app.UseHttpsRedirection();
+
+app.UseAuthentication(); 
+app.UseAuthorization();  
+
+app.MapControllers();
+
+app.Run();
