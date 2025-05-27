@@ -1,4 +1,5 @@
-﻿using AIRecipeApp.Api.Entities;
+﻿using AIRecipeApp.Api.Authorization;
+using AIRecipeApp.Api.Entities;
 using AIRecipeApp.Api.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -68,7 +69,7 @@ public class RecipeController : ControllerBase
         return Ok(recipes);
     }
 
-    [Authorize]
+    [Authorize(Policy = Policies.UserOrAbove)]
     [HttpPost("save-recipe")]
     public async Task<IActionResult> SaveRecipe([FromBody] Recipe recipe)
     {
@@ -80,5 +81,32 @@ public class RecipeController : ControllerBase
         recipe.UserId = userId;
         await _recipeService.CreateAsync(recipe);
         return Ok(new { message = "Tarif başarıyla kaydedildi!", recipe });
+    }
+
+    // Moderator ve Admin kullanıcılar tüm tarifleri yönetebilir
+    [Authorize(Policy = Policies.ModeratorOrAdmin)]
+    [HttpDelete("{recipeId}")]
+    public async Task<IActionResult> DeleteRecipe(string recipeId)
+    {
+        var recipe = await _recipeService.GetByIdAsync(recipeId);
+        if (recipe == null)
+            return NotFound("Tarif bulunamadı.");
+
+        await _recipeService.DeleteAsync(recipeId);
+        return Ok(new { message = "Tarif başarıyla silindi." });
+    }
+
+    // Moderator ve Admin kullanıcılar herhangi bir tarifi düzenleyebilir
+    [Authorize(Policy = Policies.ModeratorOrAdmin)]
+    [HttpPut("{recipeId}")]
+    public async Task<IActionResult> UpdateRecipe(string recipeId, [FromBody] Recipe updatedRecipe)
+    {
+        var existingRecipe = await _recipeService.GetByIdAsync(recipeId);
+        if (existingRecipe == null)
+            return NotFound("Tarif bulunamadı.");
+
+        updatedRecipe.Id = recipeId;
+        await _recipeService.UpdateAsync(recipeId, updatedRecipe);
+        return Ok(new { message = "Tarif başarıyla güncellendi.", recipe = updatedRecipe });
     }
 }

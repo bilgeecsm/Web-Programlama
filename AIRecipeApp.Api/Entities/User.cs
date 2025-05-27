@@ -14,5 +14,8 @@ namespace AIRecipeApp.Api.Entities
 
         [BsonElement("password")]
         public string Password { get; set; }
+
+        [BsonElement("role")]
+        public Role Role { get; set; } = Role.User; // Varsayılan olarak User rolü
     }
 }
