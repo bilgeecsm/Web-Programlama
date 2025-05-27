@@ -32,7 +32,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization(); // 📌 Authorization Middleware
+// 📌 Authorization ve RBAC Policy'ler
+builder.Services.AddAuthorization(options =>
+{
+    // Admin yetkisi gerektiren policy
+    options.AddPolicy("AdminOnly", policy =>
+        policy.RequireClaim("role", "Admin"));
+    
+    // Moderator veya Admin yetkisi gerektiren policy
+    options.AddPolicy("ModeratorOrAdmin", policy =>
+        policy.RequireClaim("role", "Admin", "Moderator"));
+    
+    // User veya üstü yetki gerektiren policy
+    options.AddPolicy("UserOrAbove", policy =>
+        policy.RequireClaim("role", "User", "Moderator", "Admin"));
+});
 
 // 📌 OpenAPI (Swagger) desteğini ekle ve JWT desteğini dahil et
 builder.Services.AddEndpointsApiExplorer();
