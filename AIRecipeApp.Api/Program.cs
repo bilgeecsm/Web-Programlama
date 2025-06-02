@@ -16,7 +16,8 @@ builder.Services.AddScoped<IRecipeService, RecipeService>();
 builder.Services.AddScoped<IOpenAiService, OpenAiService>();
 
 
-// 📌 JWT Authentication Ekle
+// 📌 JWT Authentication Ekleniyor
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -32,9 +33,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization(); // 📌 Authorization Middleware
 
-// 📌 OpenAPI (Swagger) desteğini ekle ve JWT desteğini dahil et
+// 📌 Authorization ve RBAC Policy'ler
+builder.Services.AddAuthorization(options =>
+{
+    // Admin yetkisi gerektiren policy
+    options.AddPolicy("AdminOnly", policy =>
+        policy.RequireClaim("role", "Admin"));
+    
+    // Moderator veya Admin yetkisi gerektiren policy
+    options.AddPolicy("ModeratorOrAdmin", policy =>
+        policy.RequireClaim("role", "Admin", "Moderator"));
+    
+    // User veya üstü yetki gerektiren policy
+    options.AddPolicy("UserOrAbove", policy =>
+        policy.RequireClaim("role", "User", "Moderator", "Admin"));
+});
+
+
+// 📌 OpenAPI (Swagger) desteği eklendi ve JWT desteği dahil edildi
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -45,7 +62,8 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Malzemelerden tarif oluşturabilen yapay zeka destekli API"
     });
 
-    // 📌 Swagger UI'ye JWT Token Desteği Ekleyelim
+    
+    // 📌 Swagger UI'ye JWT Token Desteği Ekleniyor
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         In = ParameterLocation.Header,
