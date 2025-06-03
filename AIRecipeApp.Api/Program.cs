@@ -14,6 +14,10 @@ builder.Services.Configure<MongoDbContext>(builder.Configuration);
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddScoped<IRecipeService, RecipeService>();
 builder.Services.AddScoped<IOpenAiService, OpenAiService>();
+// RoleService'i DI container'a ekle
+builder.Services.AddScoped<RoleService>();
+// Custom role handler'ı ekle
+builder.Services.AddScoped<IAuthorizationHandler, CustomRoleHandler>();
 
 
 // 📌 JWT Authentication Ekle

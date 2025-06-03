@@ -1,5 +1,6 @@
 ﻿using AIRecipeApp.Api.Context;
 using AIRecipeApp.Api.Entities;
+using AIRecipeApp.Api.Service;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -16,14 +17,15 @@ namespace AIRecipeApp.Api.Controllers
     {
         private readonly MongoDbContext _context;
         private readonly IConfiguration _config;
+        private readonly RoleService _roleService;
 
-        public AuthController(MongoDbContext context, IConfiguration config)
+        public AuthController(MongoDbContext context, IConfiguration config, RoleService roleService)
         {
             _context = context;
             _config = config;
+            _roleService = roleService;
         }
 
-        // 📌 Kullanıcı Kayıt
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] User user)
         {
@@ -32,10 +34,17 @@ namespace AIRecipeApp.Api.Controllers
                 return BadRequest("Bu kullanıcı adı zaten alınmış.");
 
             await _context.Users.InsertOneAsync(user);
+
+            // Varsayılan olarak "User" rolünü ata
+            var defaultRole = await _context.Roles.Find(r => r.Name == "User").FirstOrDefaultAsync();
+            if (defaultRole != null)
+            {
+                await _roleService.AssignRoleToUserAsync(user.Id, defaultRole.Id);
+            }
+
             return Ok(new { message = "Kullanıcı başarıyla kaydedildi!" });
         }
 
-        // 📌 Kullanıcı Girişi (JWT Token Oluşturma)
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] User user)
         {
@@ -43,11 +52,26 @@ namespace AIRecipeApp.Api.Controllers
             if (existingUser == null)
                 return Unauthorized("Kullanıcı adı veya şifre hatalı!");
 
-            var token = GenerateJwtToken(existingUser);
+            // Kullanıcının rollerini al
+            var userRoles = await _roleService.GetUserRolesAsync(existingUser.Id);
+
+            var claims = new List<Claim>
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, existingUser.Id),
+                new Claim(JwtRegisteredClaimNames.UniqueName, existingUser.Username)
+            };
+
+            // Rolleri claims'e ekle
+            foreach (var role in userRoles)
+            {
+                claims.Add(new Claim("role", role));
+            }
+
+            var token = GenerateJwtToken(claims);
             return Ok(new { token });
         }
 
-        private string GenerateJwtToken(User user)
+        private string GenerateJwtToken(List<Claim> claims)
         {
             var keyString = _config["Jwt:Key"];
 
@@ -58,13 +82,6 @@ namespace AIRecipeApp.Api.Controllers
 
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-            var claims = new[]
-            {
-                new Claim(JwtRegisteredClaimNames.Sub, user.Id),
-                new Claim(JwtRegisteredClaimNames.UniqueName, user.Username),
-                new Claim(ClaimTypes.Role, user.Role.ToString()), // RBAC için rol bilgisi eklendi
-                new Claim("role", user.Role.ToString()) // Custom claim da eklendi
-            };
 
             var token = new JwtSecurityToken(
                 _config["Jwt:Issuer"],
