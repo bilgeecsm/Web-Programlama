@@ -1,79 +1,84 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using System.Text;
-using Microsoft.AspNetCore.Http;
-using System.Net.Http;
-using System.Threading.Tasks;
+using AIRecipeApp.Api.Entities;
+using AIRecipeApp.Api.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
-namespace AIRecipeApp.UI.Controllers
+[Route("api/[controller]")]
+[ApiController]
+public class RecipeController : ControllerBase
 {
-    
-    public class AuthUIController : Controller
+    private readonly IRecipeService _recipeService;
+    private readonly IOpenAiService _aiService;
+
+    // Bağımlılıkları enjekte ederek tarif işlemleri ve OpenAI entegrasyonu için kullanılan controller.
+    public RecipeController(IRecipeService recipeService, IOpenAiService aiService)
     {
-        private readonly HttpClient _httpClient;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        _recipeService = recipeService;
+        _aiService = aiService;
+    }
 
-        public AuthUIController(HttpClient httpClient, IHttpContextAccessor httpContextAccessor)
+    [HttpGet]
+    public async Task<ActionResult<List<Recipe>>> Get()
+    {
+        // Tüm tarifleri getirir ve HTTP 200 (OK) olarak döner.
+        var recipes = await _recipeService.GetAllAsync();
+        return Ok(recipes);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] Recipe recipe)
+    {
+        // Yeni bir tarif ekler. Eksik bilgi varsa HTTP 400 (Bad Request) döner.
+        if (recipe == null)
+            return BadRequest("Tarif bilgisi eksik!");
+
+        await _recipeService.CreateAsync(recipe);
+        return CreatedAtAction(nameof(Get), new { id = recipe.Id }, recipe);
+    }
+
+    [HttpPost("get-recipe")]
+    public async Task<IActionResult> GetRecipeFromAI([FromBody] List<string> ingredients)
+    {
+        // Kullanıcının girdiği malzemelere göre OpenAI API'den yemek tarifi alır.
+        if (ingredients == null || ingredients.Count == 0)
+            return BadRequest("Lütfen en az bir malzeme girin.");
+
+        var recipeText = await _aiService.GetRecipeFromAI(ingredients);
+        var recipe = new Recipe
         {
-            _httpClient = httpClient;
-            _httpContextAccessor = httpContextAccessor;
-        }
+            Title = "AI Önerisi",
+            Ingredients = ingredients,
+            Instructions = recipeText
+        };
 
-        public IActionResult Login()
-        {
-            return View();
-        }
+        return Ok(recipe);
+    }
 
-        [HttpPost]
-        public async Task<IActionResult> Login(string username, string password)
-        {
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-            {
-                ViewBag.Error = "Kullanıcı adı ve şifre zorunludur.";
-                return View();
-            }
+    [Authorize]
+    [HttpGet("list")]
+    public async Task<IActionResult> GetRecipes()
+    {
+        // Kullanıcının kayıtlı tariflerini getirir. Eğer kullanıcı giriş yapmamışsa HTTP 401 (Unauthorized) döner.
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null)
+            return Unauthorized();
 
-            var loginData = new { Username = username, Password = password };
-            var jsonContent = new StringContent(JsonConvert.SerializeObject(loginData), Encoding.UTF8, "application/json");
+        var recipes = await _recipeService.GetByUserIdAsync(userId);
+        return Ok(recipes);
+    }
 
-            HttpResponseMessage response;
-            try
-            {
-                response = await _httpClient.PostAsync("https://localhost:7025/api/auth/login", jsonContent);
-            }
-            catch (HttpRequestException)
-            {
-                ViewBag.Error = "Sunucuya bağlanılamadı. Lütfen daha sonra tekrar deneyin.";
-                return View();
-            }
+    [Authorize]
+    [HttpPost("save-recipe")]
+    public async Task<IActionResult> SaveRecipe([FromBody] Recipe recipe)
+    {
+        // Kullanıcının yeni bir tarif kaydetmesini sağlar. Kullanıcı giriş yapmamışsa HTTP 401 (Unauthorized) döner.
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null)
+            return Unauthorized();
 
-            if (!response.IsSuccessStatusCode)
-            {
-                ViewBag.Error = "Kullanıcı adı veya şifre hatalı!";
-                return View();
-            }
-
-            var result = await response.Content.ReadAsStringAsync();
-            var jsonObj = JsonConvert.DeserializeObject<JObject>(result);
-            var token = jsonObj?["token"]?.ToString();
-
-            if (string.IsNullOrEmpty(token) || _httpContextAccessor.HttpContext == null)
-            {
-                ViewBag.Error = "Giriş sırasında beklenmeyen bir hata oluştu.";
-                return View();
-            }
-
-            _httpContextAccessor.HttpContext.Session.SetString("auth_token", token);
-            return RedirectToAction("MyRecipes", "RecipeUI");
-        }
-
-        [HttpGet]
-        public IActionResult Logout()
-        {
-            _httpContextAccessor.HttpContext?.Session.Remove("auth_token");
-            return RedirectToAction("Login","AuthUI");
-        }
+        recipe.UserId = userId;
+        await _recipeService.CreateAsync(recipe);
+        return Ok(new { message = "Tarif başarıyla kaydedildi!", recipe });
     }
 }
