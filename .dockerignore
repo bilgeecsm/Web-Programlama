@@ -1,0 +1,51 @@
+# .NET Build ve Runtime dosyaları
+**/bin/
+**/obj/
+**/out/
+
+# Visual Studio dosyaları
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Git dosyaları
+.git/
+.gitignore
+.gitattributes
+
+# Docker dosyaları
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Node modules (eğer frontend için Node.js kullanılıyorsa)
+node_modules/
+npm-debug.log
+
+# Log dosyaları
+*.log
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# JetBrains Rider
+.idea/
+
+# Temporary files
+*.tmp
+*.temp 

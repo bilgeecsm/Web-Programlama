@@ -1,4 +1,4 @@
-﻿using AIRecipeApp.Api.Context;
+using AIRecipeApp.Api.Context;
 using AIRecipeApp.Api.Entities;
 using AIRecipeApp.Api.Service;
 using Microsoft.AspNetCore.Http;

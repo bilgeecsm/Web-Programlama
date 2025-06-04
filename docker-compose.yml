@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # MongoDB Container
+  mongodb:
+    image: mongo:7.0
+    container_name: airecipe-mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+    networks:
+      - airecipe-network
+
+  # API Container
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: airecipe-api
+    restart: always
+    ports:
+      - "5000:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - MongoDB__ConnectionString=mongodb://admin:password123@mongodb:27017
+      - MongoDB__DatabaseName=AIRecipeDB
+    depends_on:
+      - mongodb
+    networks:
+      - airecipe-network
+
+  # UI Container
+  ui:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    container_name: airecipe-ui
+    restart: always
+    ports:
+      - "3000:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ApiBaseUrl=http://api:80
+    depends_on:
+      - api
+    networks:
+      - airecipe-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  airecipe-network:
+    driver: bridge 

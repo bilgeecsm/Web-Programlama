@@ -1,8 +1,8 @@
-
 using AIRecipeApp.Api.Context;
 using AIRecipeApp.Api.Interfaces;
-
+using AIRecipeApp.Api.Service;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -19,8 +19,7 @@ builder.Services.AddScoped<RoleService>();
 // Custom role handler'ı ekle
 builder.Services.AddScoped<IAuthorizationHandler, CustomRoleHandler>();
 
-
-// 📌 JWT Authentication Ekle
+// 📌 JWT Authentication Ekleniyor
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -52,7 +51,7 @@ builder.Services.AddAuthorization(options =>
         policy.RequireClaim("role", "User", "Moderator", "Admin"));
 });
 
-// 📌 OpenAPI (Swagger) desteğini ekle ve JWT desteğini dahil et
+// 📌 OpenAPI (Swagger) desteği eklendi ve JWT desteği dahil edildi
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -63,6 +62,7 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Malzemelerden tarif oluşturabilen yapay zeka destekli API"
     });
 
+    // 📌 Swagger UI'ye JWT Token Desteği Ekleniyor
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         In = ParameterLocation.Header,
@@ -88,11 +88,9 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-
 builder.Services.AddControllers();
 
 var app = builder.Build();
-
 
 if (app.Environment.IsDevelopment())
 {

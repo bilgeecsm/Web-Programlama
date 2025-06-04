@@ -1,0 +1,21 @@
+# API projesi için Dockerfile
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+WORKDIR /app
+EXPOSE 80
+EXPOSE 443
+
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY ["AIRecipeApp.Api/AIRecipeApp.Api.csproj", "AIRecipeApp.Api/"]
+RUN dotnet restore "AIRecipeApp.Api/AIRecipeApp.Api.csproj"
+COPY . .
+WORKDIR "/src/AIRecipeApp.Api"
+RUN dotnet build "AIRecipeApp.Api.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "AIRecipeApp.Api.csproj" -c Release -o /app/publish
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "AIRecipeApp.Api.dll"] 
