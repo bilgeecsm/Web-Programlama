@@ -1,8 +1,8 @@
-﻿
 using AIRecipeApp.Api.Context;
 using AIRecipeApp.Api.Interfaces;
-
+using AIRecipeApp.Api.Service;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -14,10 +14,12 @@ builder.Services.Configure<MongoDbContext>(builder.Configuration);
 builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddScoped<IRecipeService, RecipeService>();
 builder.Services.AddScoped<IOpenAiService, OpenAiService>();
-
+// RoleService'i DI container'a ekle
+builder.Services.AddScoped<RoleService>();
+// Custom role handler'ı ekle
+builder.Services.AddScoped<IAuthorizationHandler, CustomRoleHandler>();
 
 // 📌 JWT Authentication Ekleniyor
-
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -32,7 +34,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
         };
     });
-
 
 // 📌 Authorization ve RBAC Policy'ler
 builder.Services.AddAuthorization(options =>
@@ -50,7 +51,6 @@ builder.Services.AddAuthorization(options =>
         policy.RequireClaim("role", "User", "Moderator", "Admin"));
 });
 
-
 // 📌 OpenAPI (Swagger) desteği eklendi ve JWT desteği dahil edildi
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -62,7 +62,6 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Malzemelerden tarif oluşturabilen yapay zeka destekli API"
     });
 
-    
     // 📌 Swagger UI'ye JWT Token Desteği Ekleniyor
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -89,12 +88,10 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// 📌 Controller Desteği
 builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// 📌 Swagger'ı Etkinleştir
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -105,11 +102,10 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// 📌 Middleware Sırası ÖNEMLİ
 app.UseHttpsRedirection();
 
-app.UseAuthentication(); // 📌 JWT Authentication Middleware
-app.UseAuthorization();  // 📌 Authorization Middleware
+app.UseAuthentication(); 
+app.UseAuthorization();  
 
 app.MapControllers();
 
